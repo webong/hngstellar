@@ -1,0 +1,24 @@
+{
+  "name": "stellar",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www"
+  },
+  "engines": {
+    "node": "6.9.1",
+    "npm": "3.10.8"
+  },
+  "dependencies": {
+    "body-parser": "~1.18.2",
+    "cookie-parser": "~1.4.3",
+    "debug": "~2.6.9",
+    "express": "~4.15.5",
+    "jade": "~1.11.0",
+    "morgan": "~1.9.0",
+    "request": "^2.85.0",
+    "serve-favicon": "~2.4.5",
+    "stellar-base": "^0.7.7",
+    "stellar-sdk": "^0.8.0"
+  }
+}
