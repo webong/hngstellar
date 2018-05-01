@@ -1,113 +1,119 @@
-var request = require('request');
+const request = require('request');
 
-var testurl = 'https://horizon-testnet.stellar.org'
-var stellarSdk = require('stellar-sdk');
+const testurl = 'https://horizon-testnet.stellar.org'
+const stellarSdk = require('stellar-sdk');
 stellarSdk.Network.useTestNetwork();
-var server = new stellarSdk.Server(testurl);
-var keypair = stellarSdk.Keypair; 
-var pair = keypair.random();
+const server = new stellarSdk.Server(testurl);
+const keypair = stellarSdk.Keypair;
 
 
-var sendres = function(res,status,content){
+const sendres = function(res,status,content) {
     res.status(status);
     res.json(content);
 }
 
-module.exports.createAcct = function(req, res) {
-    
-    var options = {
-        url: "https://friendbot.stellar.org/",
+module.exports.createAccount = function(req, res) {
+
+    const pair = keypair.random();
+
+    const options = {
+        url: 'https://friendbot.stellar.org/',
         qs: {addr: pair.publicKey()},
         json: true
-    }
-    
-    var callback = function(err, response, body){
-        if(err){
+    };
+
+    const callback = function(err, response, body) {
+        if (err) {
             return sendRes(res, 400, err)
         }
-        var info = {
+        const info = {
             id: pair.publicKey(),
             secret: pair.secret(),
             receipt: body
         }
-        
-        sendres(res, 200, info)
+
+        sendres(res, 200, info);
     }
-    
-    request(options, callback)
-             
+
+    request(options, callback);
 }
 
-module.exports.streamPayment = function (req, res){
-    var id = req.params.id
-    
-    var options = {
-        url: 'https://horizon-testnet.stellar.org/accounts/'+id+'/payments',
+module.exports.streamPayment = function(req, res) {
+    const id = req.params.id
+
+    const options = {
+        url: `https://horizon-testnet.stellar.org/accounts/${id}/payments`,
         json: true,
         headers: {
-            'Accept':'text/event-stream'
+            'Accept': 'text/event-stream',
         }
     }
-    
-    var callback = function (err, response, body){
+
+    const callback = function(err, response, body) {
         if (err) {
-            return sendres(res, 400, {"Error":err})
+            return sendres(res, 400, {'Error': err});
         }
-        sendres(res, 200, {"NewPayment":body})
+        sendres(res, 200, {'NewPayment': body});
     }
-    
+
     request(options, callback)
-    
+
 }
 
-module.exports.checkBalance = function (req, res){
-    var id = req.params.id
-    
-    server.loadAccount(id).then(function(account){
-        var info = {
-            desc: 'Balances for '+id,
+module.exports.checkBalance = function(req, res) {
+    const id = req.params.id
+
+    server.loadAccount(id).then(function(account) {
+        const info = {
+            desc: `Balances for ${id}`,
             balances: account.balances
         }
-        
+
         sendres(res, 200, info)
     })
 }
 
-module.exports.pay = function (req, res){
-    var sourceSecret = req.params.secret //payers secret
-    var destinationid = req.params.id //beneficiary's id
-    var amount = req.params.amount //amount to be paid a string
-    
-    var sourceKeys = keypair.fromSecret(sourceSecret)
-    
-    var transaction;
-    
+module.exports.pay = function(req, res) {
+    const sourceSecret = req.body.secret // payers secret
+    const destinationid = req.body.id   // beneficiary's id
+    const amount = req.body.amount     // amount to be paid as string
+
+    const sourceKeys = keypair.fromSecret(sourceSecret)
+
+    let transaction;
+
     server.loadAccount(destinationid)
-        .catch(stellarSdk.NotFoundError, function(error){
-            sendres(res, 400, {"Error":error})
+        .catch(stellarSdk.NotFoundError, function(error) {
+            sendres(res, 400, {'Error':error})
             throw new Error('The destination account does not exist!');
         })
-        .then(function(){
+        .then(function() {
             return server.loadAccount(sourceKeys.publicKey());
         })
-        .then(function(sourceAccount){
+        .then(function(sourceAccount) {
             transaction = new stellarSdk.TransactionBuilder(sourceAccount)
                 .addOperation(stellarSdk.Operation.payment({
                 destination: destinationid,
                 asset: stellarSdk.Asset.native(),
-                amount: amount
+                amount: amount,
             }))
                 .addMemo(stellarSdk.Memo.text('Test Transaction'))
                 .build();
             transaction.sign(sourceKeys);
             return server.submitTransaction(transaction);
         })
-        .then(function(result){
-            sendres(res, 200, {"message":"Success!", "results":result})
-            console.log('Success! Results:', result)
+        .then(function(result) {
+            sendres(res, 200, {
+                'message': 'Success!',
+                'results': result,
+            });
+            console.log('Success! Results:', result);
         })
-        .catch(function(error){
-            sendres(res, 400, {"message":"Something went wrong!", "error":error})
-            console.error('Something went wrong!', error)
+        .catch(function(error) {
+            sendres(res, 400, {
+                'message': 'Something went wrong!',
+                'error': error,
+            });
+            console.error('Something went wrong!', error);
         })
 }
