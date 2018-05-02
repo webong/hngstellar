@@ -10,3 +10,5 @@ This endpoint returns the balance of a Stellar account, the account id is sent i
   
 # /api/pay/{payer-secret}/{recipient-id}/{amount}
 This endpoint transfers a specified amount from a payer's account to a recipient's account. The payer's secret, recipient account id and amount are sent as request parameters in the request url.
+
+All route endpoints are contained in app_server/routes/index.js. All controllers for the endpoints are contained in app_server/controllers/api.js
