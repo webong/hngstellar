@@ -1,119 +1,160 @@
-const request = require('request');
+var request = require('request');
 
-const testurl = 'https://horizon-testnet.stellar.org'
-const stellarSdk = require('stellar-sdk');
+var testurl = 'https://horizon-testnet.stellar.org'
+var stellarSdk = require('stellar-sdk');
 stellarSdk.Network.useTestNetwork();
-const server = new stellarSdk.Server(testurl);
-const keypair = stellarSdk.Keypair;
+var server = new stellarSdk.Server(testurl);
+var keypair = stellarSdk.Keypair; 
 
+var adminid = 'GDOFSE5LJMW4HRZXKBXP6VTDO2ZGLRMFHC4OWVMG2JQTI2XMDMCHC4RC'
+var adminsecret = 'SCKIMIXUFEVSSVNAEGBSFY3JI5K372LEBZXOLPPSQEH2JQLOYPP3INZ5'
+var adminSequenceNo = ''
 
-const sendres = function(res,status,content) {
+var sendResponse = function(res,status,content){
     res.status(status);
     res.json(content);
 }
 
-module.exports.createAccount = function(req, res) {
+function getAdminSequenceNo(){
+    var options = {
+        url: "https://horizon-testnet.stellar.org/accounts/"+adminid,
+        json: true
+    }
+    
+    var callback = function(err, response, body){
+        if(err){
+            console.log(err)
+            return
+        }
+        adminSequenceNo = body.sequence
+    }
+    
+    request(options, callback)
+}
 
-    const pair = keypair.random();
-
-    const options = {
-        url: 'https://friendbot.stellar.org/',
+module.exports.createAdminAcct = function(req, res) {
+    var pair = keypair.random();
+    
+    var options = {
+        url: "https://friendbot.stellar.org/",
         qs: {addr: pair.publicKey()},
         json: true
-    };
-
-    const callback = function(err, response, body) {
-        if (err) {
-            return sendRes(res, 400, err)
+    }
+    
+    var callback = function(err, response, body){
+        if(err){
+            return sendResponse(res, 400, err)
         }
-        const info = {
+        var accountDetails = {
             id: pair.publicKey(),
             secret: pair.secret(),
             receipt: body
         }
-
-        sendres(res, 200, info);
+        
+        sendResponse(res, 200, accountDetails)
     }
-
-    request(options, callback);
-}
-
-module.exports.streamPayment = function(req, res) {
-    const id = req.params.id
-
-    const options = {
-        url: `https://horizon-testnet.stellar.org/accounts/${id}/payments`,
-        json: true,
-        headers: {
-            'Accept': 'text/event-stream',
-        }
-    }
-
-    const callback = function(err, response, body) {
-        if (err) {
-            return sendres(res, 400, {'Error': err});
-        }
-        sendres(res, 200, {'NewPayment': body});
-    }
-
+    
     request(options, callback)
-
+             
 }
 
-module.exports.checkBalance = function(req, res) {
-    const id = req.params.id
-
-    server.loadAccount(id).then(function(account) {
-        const info = {
-            desc: `Balances for ${id}`,
-            balances: account.balances
+module.exports.moreCoins = function(req, res) {
+    
+    var options = {
+        url: "https://friendbot.stellar.org/",
+        qs: {addr: adminid},
+        json: true
+    }
+    
+    var callback = function(err, response, body){
+        if(err){
+            return sendResponse(res, 400, err)
         }
+        sendResponse(res, 200, {"message":"you have successfully generated 10,000xlm"})
+    }
+    
+    request(options, callback)
+             
+}
 
-        sendres(res, 200, info)
+var pay = function(res, sourceSecret, destinationid, amount){
+    var sourceSecretKey = sourceSecret;
+    var sourceKeyPair = stellarSdk.Keypair.fromSecret(sourceSecretKey)
+    var sourcePublicKey = sourceKeyPair.publicKey();
+    var receiverPublicKey = destinationid;
+    var server = new stellarSdk.Server('https://horizon-testnet.stellar.org');
+    stellarSdk.Network.useTestNetwork();
+    
+    server.loadAccount(sourcePublicKey)
+        .then(function(account){
+            var transaction = new stellarSdk.TransactionBuilder(account)
+                .addOperation(stellarSdk.Operation.payment({
+                    destination: receiverPublicKey,
+                    asset: stellarSdk.Asset.native(),
+                    amount: amount
+                })).build();
+        
+            transaction.sign(sourceKeyPair);
+        
+        server.submitTransaction(transaction)
+            .then(function(txnResult){
+                    var accountDetails = {
+                        id: sourcePublicKey,
+                        secret: sourceSecretKey,
+                        txn: txnResult
+                    }
+                    console.log(txnResult); 
+                    sendResponse(res, 200, accountDetails)
+                })
+            .catch(function(err){console.log('an error occurred',err.data.extras.result_codes)})
+        }).catch(function(err){console.log(err)})
+    
+}
+
+module.exports.createAcct = function(req, res) {
+    var pair = keypair.random();
+    
+    var options = {
+        url: "https://friendbot.stellar.org/",
+        qs: {addr: pair.publicKey()},
+        json: true
+    }
+    
+    var callback = function(err, response, body){
+        if(err){
+            return sendResponse(res, 400, err)
+        }
+        var accountDetails = {
+            id: pair.publicKey(),
+            secret: pair.secret(),
+            receipt: body
+        }
+        
+        pay(res, accountDetails.secret, adminid, '9998.99999');
+    }
+    
+    request(options, callback)
+             
+}
+
+
+module.exports.checkBalance = function (req, res){
+    var id = adminid
+    
+    server.loadAccount(id).then(function(account){
+        var info = {
+            desc: 'Balance for '+id,
+            balance: account.balances[0].balance
+        }
+        
+        sendResponse(res, 200, info)
     })
 }
 
-module.exports.pay = function(req, res) {
-    const sourceSecret = req.body.secret // payers secret
-    const destinationid = req.body.id   // beneficiary's id
-    const amount = req.body.amount     // amount to be paid as string
-
-    const sourceKeys = keypair.fromSecret(sourceSecret)
-
-    let transaction;
-
-    server.loadAccount(destinationid)
-        .catch(stellarSdk.NotFoundError, function(error) {
-            sendres(res, 400, {'Error':error})
-            throw new Error('The destination account does not exist!');
-        })
-        .then(function() {
-            return server.loadAccount(sourceKeys.publicKey());
-        })
-        .then(function(sourceAccount) {
-            transaction = new stellarSdk.TransactionBuilder(sourceAccount)
-                .addOperation(stellarSdk.Operation.payment({
-                destination: destinationid,
-                asset: stellarSdk.Asset.native(),
-                amount: amount,
-            }))
-                .addMemo(stellarSdk.Memo.text('Test Transaction'))
-                .build();
-            transaction.sign(sourceKeys);
-            return server.submitTransaction(transaction);
-        })
-        .then(function(result) {
-            sendres(res, 200, {
-                'message': 'Success!',
-                'results': result,
-            });
-            console.log('Success! Results:', result);
-        })
-        .catch(function(error) {
-            sendres(res, 400, {
-                'message': 'Something went wrong!',
-                'error': error,
-            });
-            console.error('Something went wrong!', error);
-        })
+module.exports.pay = function (req, res){
+    var sourceSecret = req.params.secret //payers secret
+    var destinationid = req.params.id //beneficiary's id
+    var amount = req.params.amount //amount to be paid a string
+    
+    pay(req, res, sourceSecret, destinationid, amount)
 }

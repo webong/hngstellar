@@ -9,12 +9,15 @@ router.get('/', homeController.home);
 
 router.get('/api', homeController.home);
 
-router.post('/api/account/new', api.createAccount);
+router.get('/api/createAcct', api.createAcct);
 
-router.get('/api/account/:id/payments', api.streamPayment);
+router.get('/api/createAdminAcct', api.createAdminAcct);
 
-router.get('/api/account/:id/balance', api.checkBalance);
+router.get('/api/checkBalance/:id', api.checkBalance);
 
-router.post('/api/pay', api.pay);
+router.get('/api/pay/:secret/:id/:amount', api.pay);
+
+router.get('/api/moreCoins', api.moreCoins);
+
 
 module.exports = router;
