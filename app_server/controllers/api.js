@@ -11,8 +11,8 @@ stellarSdk.Network.useTestNetwork();
 var server = new stellarSdk.Server(url);
 var keypair = stellarSdk.Keypair; 
 
-var adminid = 'GDOFSE5LJMW4HRZXKBXP6VTDO2ZGLRMFHC4OWVMG2JQTI2XMDMCHC4RC'
-var adminsecret = 'SCKIMIXUFEVSSVNAEGBSFY3JI5K372LEBZXOLPPSQEH2JQLOYPP3INZ5'
+var adminid = ''
+var adminsecret = ''
 var adminSequenceNo = ''
 
 var sendResponse = function(res,status,content){
